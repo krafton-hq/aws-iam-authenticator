@@ -126,6 +126,22 @@ func New(cfg config.Config, stopCh <-chan struct{}) *Server {
 		}
 	}
 
+	if c.ServerEC2DescribeInstancesRoleARN != "" {
+		_, err := awsarn.Parse(c.ServerEC2DescribeInstancesRoleARN)
+		if err != nil {
+			panic(fmt.Sprintf("describeinstancesrole %s is not a valid arn", c.ServerEC2DescribeInstancesRoleARN))
+		}
+	}
+	var ec2Provider ec2provider.EC2Provider
+	switch c.EC2ProviderType {
+	case ec2provider.TypeGeneric:
+		ec2Provider = ec2provider.New(c.ServerEC2DescribeInstancesRoleARN, c.EC2DescribeInstancesQps, c.EC2DescribeInstancesBurst)
+	case ec2provider.TypeNoop:
+		ec2Provider = ec2provider.NewNoopProvider()
+	default:
+		logrus.Fatalf("ec2-provider-type %s is not a valid type", c.EC2ProviderType)
+	}
+
 	// start a TLS listener with our custom certs
 	listener, err := tls.Listen("tcp", c.ListenAddr(), &tls.Config{
 		MinVersion:   tls.VersionTLS12,
@@ -143,9 +159,12 @@ func New(cfg config.Config, stopCh <-chan struct{}) *Server {
 	logrus.Infof("reconfigure your apiserver with `--authentication-token-webhook-config-file=%s` to enable (assuming default hostPath mounts)", c.GenerateKubeconfigPath)
 	c.httpServer = http.Server{
 		ErrorLog: log.New(errLog, "", 0),
-		Handler:  c.getHandler(mappers, c.EC2DescribeInstancesQps, c.EC2DescribeInstancesBurst),
+		Handler:  c.getHandler(mappers, ec2Provider),
 	}
 	c.listener = listener
+
+	logrus.Infof("Starting the h.ec2Provider.startEc2DescribeBatchProcessing ")
+	go ec2Provider.StartEc2DescribeBatchProcessing()
 	return c
 }
 
@@ -167,17 +186,10 @@ type healthzHandler struct{}
 func (m *healthzHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "ok")
 }
-func (c *Server) getHandler(mappers []mapper.Mapper, ec2DescribeQps int, ec2DescribeBurst int) *handler {
-	if c.ServerEC2DescribeInstancesRoleARN != "" {
-		_, err := awsarn.Parse(c.ServerEC2DescribeInstancesRoleARN)
-		if err != nil {
-			panic(fmt.Sprintf("describeinstancesrole %s is not a valid arn", c.ServerEC2DescribeInstancesRoleARN))
-		}
-	}
-
+func (c *Server) getHandler(mappers []mapper.Mapper, ec2Provider ec2provider.EC2Provider) *handler {
 	h := &handler{
 		verifier:         token.NewVerifier(c.ClusterID, c.PartitionID),
-		ec2Provider:      ec2provider.New(c.ServerEC2DescribeInstancesRoleARN, ec2DescribeQps, ec2DescribeBurst),
+		ec2Provider:      ec2Provider,
 		clusterID:        c.ClusterID,
 		mappers:          mappers,
 		scrubbedAccounts: c.Config.ScrubbedAWSAccounts,
@@ -188,8 +200,6 @@ func (c *Server) getHandler(mappers []mapper.Mapper, ec2DescribeQps int, ec2Desc
 	h.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "ok")
 	})
-	logrus.Infof("Starting the h.ec2Provider.startEc2DescribeBatchProcessing ")
-	go h.ec2Provider.StartEc2DescribeBatchProcessing()
 	return h
 }
 

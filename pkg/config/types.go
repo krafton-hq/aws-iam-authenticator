@@ -165,6 +165,9 @@ type Config struct {
 	// BackendMode is an ordered list of backends to get mappings from. Comma-delimited list of: MountedFile,EKSConfigMap,CRD
 	BackendMode []string
 
+	// EC2ProviderType is an AWS EC2 InstanceDescribe Provider Type, One of: [generic,noop]
+	EC2ProviderType string
+
 	// Ec2 DescribeInstances rate limiting variables initially set to defaults until we completely
 	// understand we don't need to change
 	EC2DescribeInstancesQps   int

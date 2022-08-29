@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	"k8s.io/sample-controller/pkg/signals"
+	"sigs.k8s.io/aws-iam-authenticator/pkg/ec2provider"
 	"sigs.k8s.io/aws-iam-authenticator/pkg/mapper"
 	"sigs.k8s.io/aws-iam-authenticator/pkg/metrics"
 	"sigs.k8s.io/aws-iam-authenticator/pkg/server"
@@ -123,6 +124,12 @@ func init() {
 		DefaultEC2DescribeInstancesBurst,
 		"AWS EC2 rate Limiting with burst")
 	viper.BindPFlag("server.ec2DescribeInstancesBurst", serverCmd.Flags().Lookup("ec2-describeInstances-burst"))
+
+	serverCmd.Flags().String(
+		"ec2-provider-type",
+		"generic",
+		fmt.Sprintf("AWS EC2 InstanceDescribe Provider Type, One of: [%s]", strings.Join(ec2provider.ProviderTypeChoices, ",")))
+	viper.BindPFlag("server.ec2ProviderType", serverCmd.Flags().Lookup("ec2-provider-type"))
 
 	fs := flag.NewFlagSet("", flag.ContinueOnError)
 	_ = fs.Parse([]string{})

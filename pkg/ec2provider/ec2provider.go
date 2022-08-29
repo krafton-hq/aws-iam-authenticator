@@ -23,6 +23,16 @@ import (
 )
 
 const (
+	TypeGeneric string = "generic"
+
+	TypeNoop string = "noop"
+)
+
+var (
+	ProviderTypeChoices = []string{TypeGeneric, TypeNoop}
+)
+
+const (
 	// max limit of k8s nodes support
 	maxChannelSize = 8000
 	// max number of in flight non batched ec2:DescribeInstances request to flow

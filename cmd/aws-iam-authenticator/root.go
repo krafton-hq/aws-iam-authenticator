@@ -102,6 +102,7 @@ func getConfig() (config.Config, error) {
 		EC2DescribeInstancesQps:           viper.GetInt("server.ec2DescribeInstancesQps"),
 		EC2DescribeInstancesBurst:         viper.GetInt("server.ec2DescribeInstancesBurst"),
 		ScrubbedAWSAccounts:               viper.GetStringSlice("server.scrubbedAccounts"),
+		EC2ProviderType:                   viper.GetString("server.ec2ProviderType"),
 	}
 	if err := viper.UnmarshalKey("server.mapRoles", &cfg.RoleMappings); err != nil {
 		return cfg, fmt.Errorf("invalid server role mappings: %v", err)
